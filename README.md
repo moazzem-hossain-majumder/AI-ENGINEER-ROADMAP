@@ -76,6 +76,29 @@ Most AI roadmaps are passive lists of videos and articles. **This roadmap is dif
 | **014** | `014-error-handling-retry` | Exponential Backoff & Provider Fallback | Handle rate limits (429), timeouts, and automatic failovers across providers. | 🔲 Planned |
 | **015** | `015-phase1-capstone-cli-assistant` | **Phase 1 Capstone: Universal CLI AI Copilot** | Synthesis of Projects 001–014: multi-provider, streaming, memory, structured export. | 🔲 Capstone |
 
+#### ▶️ Quick Run & Verification Commands for Phase 01:
+Test and run any project with a single command from the project root:
+
+```powershell
+# Project 001: Hello LLM API Call
+.\.venv\Scripts\python 01-llm-foundations/001-hello-llm/main.py
+
+# Project 002: Sampling Parameters & Determinism
+.\.venv\Scripts\python 01-llm-foundations/002-sampling-parameters/main.py
+
+# Project 003: Multi-Turn Chat (Automated Demo)
+.\.venv\Scripts\python 01-llm-foundations/003-multi-turn-chat/main.py
+
+# Project 003: Multi-Turn Chat (Interactive Terminal Chat)
+.\.venv\Scripts\python 01-llm-foundations/003-multi-turn-chat/main.py --interactive
+
+# Project 004: Structured JSON & Pydantic Validation
+.\.venv\Scripts\python 01-llm-foundations/004-structured-outputs/main.py
+
+# Project 005: Real-Time Token Streaming
+.\.venv\Scripts\python 01-llm-foundations/005-streaming-responses/main.py
+```
+
 ---
 
 ### 🔹 Phase 02: Embeddings, Semantic Search & Vector DBs (Projects 016–030)

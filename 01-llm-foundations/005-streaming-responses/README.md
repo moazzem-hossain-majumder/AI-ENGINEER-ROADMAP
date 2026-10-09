@@ -15,45 +15,67 @@ By completing this project, you will:
 
 ---
 
-## 📖 Concept Explanation: Blocking vs. Streaming
-
-### Unary (Blocking) Request
-The user waits in silence while the model generates all 300 tokens on the GPU cluster. Only when the final token finishes does the HTTP response return.
-* *Perceived latency:* High (3 to 6 seconds of frozen blank screen).
+## ⚙️ How It Works (Step-by-Step Execution Flow)
 
 ```
-User Prompt ──➔ [ Server generates token 1, 2, 3 ... 300 ] ──➔ Whole text returned at once
+[Prompt Sent] ➔ [HTTP Streaming Connection Opens] ➔ [First Token Emitted (TTFT Recorded)] ➔ [Delta Chunks Streamed Live] ➔ [Stream Closes & Telemetry Displayed]
 ```
 
-### Streaming (Server-Sent Events - SSE)
-The connection stays open as an HTTP event stream. As soon as the GPU produces token 1, it is immediately flushed across the network wire to the client.
-* *Perceived latency:* Instantaneous (<150ms TTFT).
-
-```
-User Prompt ──➔ Token 1 ──➔ Token 2 ──➔ Token 3 ──➔ ... (Live typing animation)
-```
-
-### Key Production Metrics for AI Engineers
-* **TTFT (Time-to-First-Token):** Time between sending the prompt and receiving the very first chunk.
-* **TPS (Tokens Per Second):** Generation speed of the model engine (`total_tokens / streaming_duration`).
+1. **HTTP Streaming Connection:** Setting `stream=True` instructs the server to transmit data via Server-Sent Events (SSE) instead of waiting for the full response to finish.
+2. **High-Resolution Telemetry:** We record `start_time = time.perf_counter()`.
+3. **Chunk Iteration:** As each chunk arrives, `delta.content` is extracted and instantly flushed to standard output (`sys.stdout.flush()`).
+4. **TTFT Calculation:** The moment the first non-empty token arrives, `first_token_time` is recorded. The difference `(first_token_time - start_time)` gives the precise Time-to-First-Token in milliseconds.
+5. **Throughput Calculation:** We measure `tokens_per_sec = chunks_received / generation_duration`.
 
 ---
 
-## 💻 What the Code Does (`main.py`)
+## 📸 Sample Terminal Output & Run Walkthrough
 
-1. Sends a generation request with `stream=True`.
-2. Measures TTFT precision with high-resolution timers (`time.perf_counter()`).
-3. Flushes each token chunk directly to the terminal stdout in real-time.
-4. Computes and displays real-time performance analytics:
-   - Time-to-First-Token
-   - Tokens per Second (Throughput)
-   - Total elapsed time
+When you execute `main.py`, the answer types itself out in real-time on your screen, followed by a telemetry table:
+
+```text
+===========================================================
+  AI ENGINEER ROADMAP - PROJECT 005: TOKEN STREAMING       
+===========================================================
+
+Prompt: Why is streaming critical when building production AI web applications?
+
+Streaming output live...
+
+1. **Perceived Latency and User Experience**
+In production AI applications, the time it takes for a Large Language Model (LLM) to generate a full response can range from several seconds to minutes. Without streaming, users are forced to wait for the entire output before seeing any result, leading to high bounce rates and frustration. Streaming delivers tokens (words or characters) as they are generated, providing immediate visual feedback. This reduces the *perceived* latency, making the application feel instantaneous and responsive, which is critical for retaining user engagement.
+
+2. **Network Efficiency and Resource Optimization**
+Streaming leverages asynchronous communication protocols, such as Server-Sent Events (SSE) or WebSockets, rather than blocking HTTP requests. This allows the server to maintain a lightweight, persistent connection and push data incrementally. Consequently, the client does not need to buffer large payloads, and the server can manage concurrent connections more efficiently without holding open heavy request slots. This architecture scales better under high traffic loads, as it prevents network timeouts and reduces the memory footprint on both the client and server sides.
+
+3. **Real-Time Interactivity and Error Handling**
+Streaming enables real-time user interactions that are impossible with batch responses. Users can stop the generation mid-stream if the output is incorrect or irrelevant, saving computational resources and API costs. Additionally, if a network error or server-side failure occurs, the application can gracefully handle the partial response or retry the request without losing the entire context.
+
+         ⚡ Streaming Performance Telemetry          
+┌────────────────────────────────┬──────────────────┐
+│ Metric                         │ Measurement      │
+├────────────────────────────────┼──────────────────┤
+│ Model                          │ qwen/qwen3.8-27b │
+│ Time-to-First-Token (TTFT)     │ 318.9 ms         │
+│ Total Generation Time          │ 0.95 s           │
+│ Chunks / Tokens Streamed       │ 300              │
+│ Generation Speed               │ 478.1 tokens/sec │
+└────────────────────────────────┴──────────────────┘
+```
 
 ---
 
-## 🚀 How to Run
+## 💻 Code Reference
 
-```bash
+The complete runnable code is located in [`main.py`](file:///d:/AI%20ENGINEER%20ROADMAP/AI-ENGINEER-ROADMAP/01-llm-foundations/005-streaming-responses/main.py).
+
+---
+
+## 🚀 How to Run and Check
+
+Run this single command from your terminal:
+
+```powershell
 .\.venv\Scripts\python 01-llm-foundations/005-streaming-responses/main.py
 ```
 
@@ -61,5 +83,5 @@ User Prompt ──➔ Token 1 ──➔ Token 2 ──➔ Token 3 ──➔ ... 
 
 ## 🧪 Hands-On Experiments
 
-1. **Compare Models:** In `main.py`, compare the TTFT and tokens/sec between `qwen/qwen3.8-27b` and `openai/gpt-oss-20b`.
-2. **Buffer Stream:** Try buffering 3 tokens before rendering. When would token buffering be useful in production? *(Hint: Markdown parsing, code formatting, or safety scanning).*
+1. **Test Prompt Variations:** Change the prompt in [`main.py`](file:///d:/AI%20ENGINEER%20ROADMAP/AI-ENGINEER-ROADMAP/01-llm-foundations/005-streaming-responses/main.py) to ask for code or poetry and observe how TTFT and tokens/sec vary.
+2. **Observe Network Speeds:** Compare running against Groq (`qwen/qwen3.8-27b`) versus other models to see the raw hardware inference speed differences.

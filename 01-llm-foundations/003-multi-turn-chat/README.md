@@ -10,73 +10,95 @@ By completing this project, you will:
 1. Understand why LLMs are **fundamentally stateless**: The server does NOT remember you between requests.
 2. Build an append-only conversation history array: `[system, user, assistant, user, assistant...]`.
 3. Implement a **Sliding Window Buffer** to avoid overflowing the model's context window limit.
-4. Build an interactive CLI chatbot with session controls (`/history`, `/clear`, `/tokens`, `/exit`).
+4. Build an interactive CLI chatbot with session controls (`/history`, `/clear`, `/exit`).
 
 ---
 
-## 📖 Concept Explanation: Why LLMs Have No Memory
-
-A common misconception for beginners is that when you chat with an AI, the model "remembers" what you said earlier.
-
-In reality:
-```
-Turn 1:
-You: "My name is Moazzem."
-Payload Sent: [ {"role": "user", "content": "My name is Moazzem."} ]
-LLM Replies: "Nice to meet you, Moazzem!"
-
-Turn 2:
-You: "What is my name?"
-If you send ONLY: [ {"role": "user", "content": "What is my name?"} ]
-LLM Replies: "I don't know your name because you haven't told me."
-```
-
-To give the illusion of memory, the **client application** must store the full message array and resend the entire history on every single turn:
+## ⚙️ How It Works (Step-by-Step Execution Flow)
 
 ```
-Turn 2 (Corrected):
-Payload Sent: [
-    {"role": "system", "content": "You are a helpful tutor."},
-    {"role": "user", "content": "My name is Moazzem."},
-    {"role": "assistant", "content": "Nice to meet you, Moazzem!"},
-    {"role": "user", "content": "What is my name?"}
-]
-LLM Replies: "Your name is Moazzem!"
+User Input ➔ Append to History ➔ Trim Old Messages (Sliding Window) ➔ Prepend System Prompt ➔ Send Full Array ➔ Store Assistant Reply
 ```
 
-### The Trade-off: Context Window & Cost Explosion
-Because you re-send past tokens every turn:
-- **Cost grows quadratically** if conversations are long.
-- **Context limit reached**: When messages exceed the model's maximum context length.
-
-### The Solution: Sliding Window Buffer
-Keep the `system` message pinned at index 0, and retain only the last $N$ turns (e.g., last 6 exchanges), discarding older turns when the buffer overflows.
+1. **Client-Side State Storage:** The `ChatSession` class maintains an internal Python list `self.history = []`.
+2. **Conversation Append:** When you ask a question, `{"role": "user", "content": "..."}` is added to the list.
+3. **Sliding Window Truncation:** To prevent token limit errors and skyrocketing API bills, the app limits the buffer to the last $N$ turns (e.g. `self.history[-10:]`).
+4. **Context Injection:** The system prompt is always pinned at index `0`. The API receives the full list of preceding conversation turns.
+5. **Memory Recall:** Because earlier turns are included in the prompt, the model can synthesize information from past answers seamlessly.
 
 ---
 
-## 💻 What the Code Does (`main.py`)
+## 📸 Sample Terminal Output & Run Walkthrough
 
-1. Manages a `ChatSession` class with:
-   - `system_message`: Pinned instructions.
-   - `messages`: List of message objects.
-   - `max_turns`: Maximum history turns to keep.
-2. Provides an interactive terminal chat interface.
-3. Built-in CLI commands:
-   - `/history`: Inspect raw message JSON array sent to the API.
-   - `/clear`: Reset conversation state.
-   - `/exit` or `/quit`: Exit chat.
+### 1. Automated Demonstration Mode:
+Running `python main.py` runs a 3-turn demonstration proving fact storage and memory recall:
+
+```text
+===========================================================
+  AI ENGINEER ROADMAP - PROJECT 003: MULTI-TURN CHAT BOT   
+===========================================================
+
+🤖 Running Multi-Turn Demonstration Scenario...
+
+User (Turn 1): Hi! Remember that my favorite programming language is Rust.
+AI:
+Got it! I've noted that your favorite programming language is Rust. Let me know
+if you have any questions or need help with it!
+
+User (Turn 2): What is the capital of Japan?
+AI:
+The capital of Japan is Tokyo.
+
+User (Turn 3): Based on our conversation earlier, what is my favorite 
+programming language?
+AI:
+Your favorite programming language is Rust.
+
+                   📜 Current Context Buffer (Memory State)                    
+┌──────────┬──────────────┬───────────────────────────────────────────────────┐
+│ Turn #   │ Role         │ Snippet                                           │
+├──────────┼──────────────┼───────────────────────────────────────────────────┤
+│ 0        │ system       │ You are a helpful, concise AI study tutor.        │
+│ (Pinned) │              │ Remember all fact...                              │
+│ 1        │ user         │ Hi! Remember that my favorite programming         │
+│          │              │ language is Rust....                              │
+│ 2        │ assistant    │ Got it! I've noted that your favorite programming │
+│          │              │ language i...                                     │
+│ 3        │ user         │ What is the capital of Japan?...                  │
+│ 4        │ assistant    │ The capital of Japan is Tokyo....                 │
+│ 5        │ user         │ Based on our conversation earlier, what is my     │
+│          │              │ favorite progr...                                 │
+│ 6        │ assistant    │ Your favorite programming language is Rust....    │
+└──────────┴──────────────┴───────────────────────────────────────────────────┘
+
+Tip: Run with --interactive or -i to chat live in the terminal!
+```
 
 ---
 
-## 🚀 How to Run
+## 💻 Code Reference
 
-```bash
+The complete runnable code is located in [`main.py`](file:///d:/AI%20ENGINEER%20ROADMAP/AI-ENGINEER-ROADMAP/01-llm-foundations/003-multi-turn-chat/main.py).
+
+---
+
+## 🚀 How to Run and Check
+
+### Mode A: Automated Self-Test (Fastest)
+```powershell
 .\.venv\Scripts\python 01-llm-foundations/003-multi-turn-chat/main.py
 ```
+
+### Mode B: Interactive Terminal Chat
+Chat with the model in real time:
+```powershell
+.\.venv\Scripts\python 01-llm-foundations/003-multi-turn-chat/main.py --interactive
+```
+*(In interactive mode, type `/history` to inspect memory, `/clear` to reset, or `/exit` to quit).*
 
 ---
 
 ## 🧪 Hands-On Experiments
 
-1. **Test Memory:** Tell the bot: *"Remember the secret code: PHOENIX-99."* Then ask 2 unrelated questions. Then ask: *"What was the secret code?"*
-2. **Buffer Pruning:** Set `max_turns = 2` in `main.py`. Have a 5-turn conversation and ask about Turn 1. Notice how older messages fall out of the context window.
+1. **Verify Context Pruning:** Open [`main.py`](file:///d:/AI%20ENGINEER%20ROADMAP/AI-ENGINEER-ROADMAP/01-llm-foundations/003-multi-turn-chat/main.py) and change `max_turns = 1`. Run the demo again and observe how Turn 1 is forgotten because the window slid past it!
+2. **Experiment with Custom Personas:** Change `system_prompt` to act as a strict code auditor or interviewer.
