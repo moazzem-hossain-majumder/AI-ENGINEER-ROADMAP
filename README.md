@@ -70,11 +70,11 @@ Most AI roadmaps are passive lists of videos and articles. **This roadmap is dif
 | **008** | [008-chain-of-thought](01-llm-foundations/008-chain-of-thought/) | Reasoning Prompts (CoT & Zero-Shot CoT) | Guide the LLM to think step-by-step for complex logic and math. | ✅ Ready |
 | **009** | [009-prompt-templates](01-llm-foundations/009-prompt-templates/) | Reusable & Composable Prompt Templates | Build dynamic parameterized prompt builders for real-world use cases. | ✅ Ready |
 | **010** | [010-prompt-injection-defense](01-llm-foundations/010-prompt-injection-defense/) | Prompt Security & System Defenses | Implement input sanitization, delimiters, and adversarial prompt detection. | ✅ Ready |
-| **011** | `011-role-playing-persona` | Dynamic System Personas & Tone Control | Condition model personality, constraints, and vocabulary. | 🔲 Planned |
-| **012** | `012-text-summarizer-cli` | Map-Reduce & Chunked Summarization | Process documents that exceed standard single-prompt limits. | 🔲 Planned |
-| **013** | `013-markdown-to-social` | Multi-Format Content Transformation | Transform long-form technical writing into LinkedIn/Twitter threads. | 🔲 Planned |
-| **014** | `014-error-handling-retry` | Exponential Backoff & Provider Fallback | Handle rate limits (429), timeouts, and automatic failovers across providers. | 🔲 Planned |
-| **015** | `015-phase1-capstone-cli-assistant` | **Phase 1 Capstone: Universal CLI AI Copilot** | Synthesis of Projects 001–014: multi-provider, streaming, memory, structured export. | 🔲 Capstone |
+| **011** | [011-role-playing-persona](01-llm-foundations/011-role-playing-persona/) | Dynamic System Personas & Tone Control | Condition model personality, constraints, and vocabulary. | ✅ Ready |
+| **012** | [012-text-summarizer-cli](01-llm-foundations/012-text-summarizer-cli/) | Map-Reduce & Chunked Summarization | Process documents that exceed standard single-prompt limits. | ✅ Ready |
+| **013** | [013-markdown-to-social](01-llm-foundations/013-markdown-to-social/) | Multi-Format Content Transformation | Transform long-form technical writing into LinkedIn/Twitter threads. | ✅ Ready |
+| **014** | [014-error-handling-retry](01-llm-foundations/014-error-handling-retry/) | Exponential Backoff & Provider Fallback | Handle rate limits (429), timeouts, and automatic failovers across providers. | ✅ Ready |
+| **015** | [015-phase1-capstone-cli-assistant](01-llm-foundations/015-phase1-capstone-cli-assistant/) | **Phase 1 Capstone: Universal CLI AI Copilot** | Synthesis of Projects 001–014: multi-provider, streaming, memory, structured export. | 🏆 Completed |
 
 #### ▶️ Quick Run & Verification Commands for Phase 01:
 Test and run any project with a single command from the project root:
@@ -112,6 +112,24 @@ Test and run any project with a single command from the project root:
 
 # Project 010: Prompt Injection Defense & Input Sanitization
 .\.venv\Scripts\python 01-llm-foundations/010-prompt-injection-defense/main.py
+
+# Project 011: Dynamic System Personas & Audience Adaptation
+.\.venv\Scripts\python 01-llm-foundations/011-role-playing-persona/main.py
+
+# Project 012: Map-Reduce Chunked Text Summarizer
+.\.venv\Scripts\python 01-llm-foundations/012-text-summarizer-cli/main.py
+
+# Project 013: Markdown-to-Social Content Transformer
+.\.venv\Scripts\python 01-llm-foundations/013-markdown-to-social/main.py
+
+# Project 014: Exponential Backoff & Multi-Provider Fallback Router
+.\.venv\Scripts\python 01-llm-foundations/014-error-handling-retry/main.py
+
+# Project 015: PHASE 1 CAPSTONE - Universal CLI AI Copilot (Self-Test)
+.\.venv\Scripts\python 01-llm-foundations/015-phase1-capstone-cli-assistant/main.py --test
+
+# Project 015: PHASE 1 CAPSTONE - Universal CLI AI Copilot (Live Chat)
+.\.venv\Scripts\python 01-llm-foundations/015-phase1-capstone-cli-assistant/main.py
 ```
 
 ---

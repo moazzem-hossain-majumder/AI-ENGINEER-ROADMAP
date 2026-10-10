@@ -31,3 +31,4 @@ models/
 .DS_Store
 Thumbs.db
 *.log
+session_export.json
