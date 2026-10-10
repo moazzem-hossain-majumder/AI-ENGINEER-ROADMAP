@@ -65,11 +65,11 @@ Most AI roadmaps are passive lists of videos and articles. **This roadmap is dif
 | **003** | [003-multi-turn-chat](01-llm-foundations/003-multi-turn-chat/) | Conversation History & Buffer State | Build a terminal chat loop maintaining context window state manually. | ✅ Ready |
 | **004** | [004-structured-outputs](01-llm-foundations/004-structured-outputs/) | JSON Mode & Pydantic Validation | Enforce strict schema validation and parse unstructured text to typed models. | ✅ Ready |
 | **005** | [005-streaming-responses](01-llm-foundations/005-streaming-responses/) | Server-Sent Events & Token Streaming | Stream tokens in real time to the CLI for low-latency user experience. | ✅ Ready |
-| **006** | `006-token-budget-calculator` | Tokenization & Cost Estimation | Calculate token usage using tiktoken and estimate cost across models. | 🔲 Planned |
-| **007** | `007-few-shot-prompting` | In-Context Learning (Few-Shot) | Steer LLM behavior and output formats using canonical examples. | 🔲 Planned |
-| **008** | `008-chain-of-thought` | Reasoning Prompts (CoT & Zero-Shot CoT) | Guide the LLM to think step-by-step for complex logic and math. | 🔲 Planned |
-| **009** | `009-prompt-templates` | Reusable & Composable Prompt Templates | Build dynamic parameterized prompt builders for real-world use cases. | 🔲 Planned |
-| **010** | `010-prompt-injection-defense` | Prompt Security & System Defenses | Implement input sanitization, delimiters, and adversarial prompt detection. | 🔲 Planned |
+| **006** | [006-token-budget-calculator](01-llm-foundations/006-token-budget-calculator/) | Tokenization & Cost Estimation | Calculate token usage using tiktoken and estimate cost across models. | ✅ Ready |
+| **007** | [007-few-shot-prompting](01-llm-foundations/007-few-shot-prompting/) | In-Context Learning (Few-Shot) | Steer LLM behavior and output formats using canonical examples. | ✅ Ready |
+| **008** | [008-chain-of-thought](01-llm-foundations/008-chain-of-thought/) | Reasoning Prompts (CoT & Zero-Shot CoT) | Guide the LLM to think step-by-step for complex logic and math. | ✅ Ready |
+| **009** | [009-prompt-templates](01-llm-foundations/009-prompt-templates/) | Reusable & Composable Prompt Templates | Build dynamic parameterized prompt builders for real-world use cases. | ✅ Ready |
+| **010** | [010-prompt-injection-defense](01-llm-foundations/010-prompt-injection-defense/) | Prompt Security & System Defenses | Implement input sanitization, delimiters, and adversarial prompt detection. | ✅ Ready |
 | **011** | `011-role-playing-persona` | Dynamic System Personas & Tone Control | Condition model personality, constraints, and vocabulary. | 🔲 Planned |
 | **012** | `012-text-summarizer-cli` | Map-Reduce & Chunked Summarization | Process documents that exceed standard single-prompt limits. | 🔲 Planned |
 | **013** | `013-markdown-to-social` | Multi-Format Content Transformation | Transform long-form technical writing into LinkedIn/Twitter threads. | 🔲 Planned |
@@ -97,6 +97,21 @@ Test and run any project with a single command from the project root:
 
 # Project 005: Real-Time Token Streaming
 .\.venv\Scripts\python 01-llm-foundations/005-streaming-responses/main.py
+
+# Project 006: Token Budgeting & Multi-Model Cost Calculator
+.\.venv\Scripts\python 01-llm-foundations/006-token-budget-calculator/main.py
+
+# Project 007: Few-Shot In-Context Classification
+.\.venv\Scripts\python 01-llm-foundations/007-few-shot-prompting/main.py
+
+# Project 008: Chain-of-Thought (CoT) Reasoning Engine
+.\.venv\Scripts\python 01-llm-foundations/008-chain-of-thought/main.py
+
+# Project 009: Dynamic Validated Prompt Templates
+.\.venv\Scripts\python 01-llm-foundations/009-prompt-templates/main.py
+
+# Project 010: Prompt Injection Defense & Input Sanitization
+.\.venv\Scripts\python 01-llm-foundations/010-prompt-injection-defense/main.py
 ```
 
 ---
