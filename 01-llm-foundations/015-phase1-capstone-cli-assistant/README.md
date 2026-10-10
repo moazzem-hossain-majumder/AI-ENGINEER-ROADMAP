@@ -63,12 +63,54 @@ A production copilot is an orchestration engine that unifies multiple subsystems
                       └──────────────────────────────────────────────┘
 ```
 
-### 2. State & Buffer Isolation
-The `CopilotEngine` maintains clean separation between:
-- **Session Identity:** Unique session ID and start timestamp.
-- **Active Persona:** The currently loaded system prompt instructions.
-- **Conversation Buffer:** List of preceding (user, assistant) message turns.
-- **Financial Ledger:** Cumulative prompt and completion token counters.
+---
+
+## 🧩 Code Dissection: Why Did We Write It This Way?
+
+For beginners reading [`main.py`](file:///d:/AI%20ENGINEER%20ROADMAP/AI-ENGINEER-ROADMAP/01-llm-foundations/015-phase1-capstone-cli-assistant/main.py), here is how the architectural subsystems connect together:
+
+### 1. The `CopilotEngine` Orchestrator
+```python
+class CopilotEngine:
+    def __init__(self, default_persona: str = "mentor", max_turns: int = 6):
+        self.session_id = f"copilot-{int(time.time())}"
+        self.tokenizer = tiktoken.get_encoding("cl100k_base")
+```
+* **Why did we write this?** Instead of writing loose functions, an engine class holds the entire state machine:
+  - Conversation buffer (`self.history`)
+  - Token ledger (`self.total_prompt_tokens`, `self.total_completion_tokens`)
+  - Active persona configuration (`self.active_persona_key`)
+  - API provider instances (`Groq` and `genai`)
+
+---
+
+### 2. Real-Time Token Accounting with `tiktoken` During Streaming
+```python
+p_tokens = len(self.tokenizer.encode(user_query))
+self.total_prompt_tokens += p_tokens
+...
+c_tokens = len(self.tokenizer.encode(final_reply))
+self.total_completion_tokens += c_tokens
+```
+* **Why did we write this?** When streaming responses over HTTP SSE (`stream=True`), some provider engines do not emit final token usage objects in the stream delta chunks.
+* **The Solution:** By passing the final concatenated reply through local Rust-based `tiktoken`, the copilot computes exact token counts and live dollar spend locally with zero reliance on missing stream metadata.
+
+---
+
+### 3. Structured Export via Pydantic (`SessionExport`)
+```python
+report = SessionExport(
+    session_id=self.session_id,
+    active_persona=self.active_persona_key,
+    total_turns=len(turns),
+    estimated_cost_usd=self.get_estimated_cost(),
+    history=turns
+)
+```
+* **Why export to JSON?** In enterprise AI engineering, saving raw chat logs into structured, typed JSON files is the prerequisite for:
+  - Building offline evaluation benchmarks (Phase 06).
+  - Fine-tuning dataset curation (Phase 07).
+  - Tracing and observability in Datadog, Langfuse, or LangSmith.
 
 ---
 
@@ -82,11 +124,11 @@ The `CopilotEngine` maintains clean separation between:
    Attempt real-time streaming via Groq. If Groq triggers a timeout or connection failure, catch the exception, announce the failover, and stream from Google Gemini.
 4. **Step 4: Interactive Command Router:**
    Listen for special slash commands:
-   - `/persona [name]`: Switch persona dynamically (`mentor`, `coder`, `eli5`).
+   - `/persona [name]`: Switch persona dynamically.
    - `/cost`: Print token count and total dollar spend.
    - `/history`: Print memory buffer table.
    - `/clear`: Wipe memory.
-   - `/export`: Export session to a Markdown/JSON file.
+   - `/export`: Export session to a JSON file.
    - `/exit`: Terminate session.
 
 ---
@@ -126,7 +168,7 @@ than exact keywords!
 You > /persona coder
 [Persona Updated] 💻 Active Persona: Staff Software Engineer
 
-You > How do we index them for sub-10ms search?
+You > How do we query them with HNSW?
 
 [Streaming response live...]
 In production, flat brute-force scanning doesn't scale past 100k vectors.
@@ -157,13 +199,15 @@ The complete runnable code is located in [`main.py`](file:///d:/AI%20ENGINEER%20
 
 ## 🚀 How to Run and Check
 
-Run this single command from your terminal:
+### Mode 1: Automated Self-Test (Fastest)
+```powershell
+.\.venv\Scripts\python 01-llm-foundations/015-phase1-capstone-cli-assistant/main.py --test
+```
 
+### Mode 2: Interactive Terminal Chat
 ```powershell
 .\.venv\Scripts\python 01-llm-foundations/015-phase1-capstone-cli-assistant/main.py
 ```
-
-*(Or to run an automated end-to-end self-test without typing, run: `python main.py --test`)*
 
 ---
 

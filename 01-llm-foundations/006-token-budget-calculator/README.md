@@ -25,25 +25,39 @@ In natural language processing, there are three theoretical ways to represent te
 - **Word-level:** The vocabulary is virtually infinite. New slang, typos, technical terms (e.g., `LangChain`, `PyTorch`), and non-English words would trigger missing word errors (`<UNK>`).
 - **Sub-word Level (Byte Pair Encoding - BPE):** The sweet spot. Common words become single tokens (e.g., `"the"`, `"cat"`), while rare or composite words are broken down into sub-word pieces (e.g., `"tokenization"` $\to$ `["token", "ization"]`).
 
-### 2. How Byte Pair Encoding (BPE) Works
-Originally a data compression algorithm (Gage, 1994), BPE is the standard tokenization method for modern LLMs (GPT-4, Llama 3, Qwen):
-1. The vocabulary starts with individual base bytes (UTF-8).
-2. The training corpus is scanned for the most frequent adjacent character pairs (e.g., `'t'` and `'h'`).
-3. These pairs are merged into a new single token (`'th'`).
-4. This merge process repeats iteratively hundreds of thousands of times until the target vocabulary size (~100,000 to 200,000 tokens) is reached.
-5. Leading spaces and punctuation are often fused into the beginning of words (e.g., `"·artificial"`).
+---
 
-### 3. The Token-to-Word Ratio & Language Disparity
-- **English Prose:** On average, 1,000 English words correspond to **~1,333 tokens** (~0.75 words per token).
-- **Source Code:** High punctuation and indentation create more tokens: 1,000 lines of code can consume **2,500+ tokens**.
-- **Non-Latin Scripts (Bengali, Hindi, Arabic, Japanese):** Because these scripts require 3 or 4 UTF-8 bytes per character, a single non-Latin word may split into 3 to 6 sub-word tokens, making non-English processing more expensive and slower unless using a multilingual vocabulary like Qwen or Llama 3.
+## 🧩 Code Dissection: Why Did We Write It This Way?
 
-### 4. Financial Economics of LLM APIs
-Production APIs bill separately for inputs and outputs:
-- **Prompt (Input) Tokens:** Cheaper because processing prompt tokens can be parallelized across GPU matrix cores simultaneously during pre-fill.
-- **Completion (Output) Tokens:** 2x to 5x more expensive because each token must be generated sequentially (one step at a time), bottlenecking GPU memory bandwidth.
+For beginners reading [`main.py`](file:///d:/AI%20ENGINEER%20ROADMAP/AI-ENGINEER-ROADMAP/01-llm-foundations/006-token-budget-calculator/main.py), here is why we used `tiktoken` and sub-word boundary decoding:
 
-$$\text{Total Cost} = \left(\frac{\text{Prompt Tokens}}{10^6} \times \text{Price}_{\text{in}}\right) + \left(\frac{\text{Completion Tokens}}{10^6} \times \text{Price}_{\text{out}}\right)$$
+### 1. `tiktoken` vs. `len(text.split())`
+```python
+encoding = tiktoken.get_encoding("cl100k_base")
+token_ids = encoding.encode(text)
+num_tokens = len(token_ids)
+```
+* **Why did we write this?** To accurately measure the exact number of tokens the model engine will bill and process.
+* **The Beginner Trap:** Writing `words = len(text.split())` and multiplying by 1.3 to guess token count.
+* **Why guessing fails:** In source code, punctuation (`{`, `}`, `()`), and technical terminology (`torch.cuda.is_available()`), the character-to-token ratio changes dramatically. In Bengali or Japanese, a single word can be 5 tokens! `tiktoken` compiles OpenAI's BPE vocabulary in Rust, producing the exact ground truth count in microseconds.
+
+---
+
+### 2. Decoding Tokens Individually to Inspect Boundaries
+```python
+token_chunks = [encoding.decode([tid]) for tid in token_ids]
+```
+* **Why did we write this?** Passing an array with a single token ID `[tid]` into `encoding.decode()` reverses only that specific sub-word.
+* **The Visual Insight:** It exposes the hidden space markers (e.g. `·engineering` vs `engineering`), showing beginners that whitespace is almost always fused into the subsequent token rather than existing as its own token.
+
+---
+
+### 3. Pre-Flight Budgeting in Production
+* **Why run this before calling the API?**
+  If a user uploads a 500-page document into a 32k context model, calling the API without pre-flight token counting results in:
+  1. A wasted network connection.
+  2. A failed `HTTP 400 ContextLengthExceeded` exception.
+  Counting locally with `tiktoken` costs 0 dollars and 0 milliseconds, allowing you to reject, summarize, or chunk the document *before* failing.
 
 ---
 
@@ -52,7 +66,6 @@ $$\text{Total Cost} = \left(\frac{\text{Prompt Tokens}}{10^6} \times \text{Price
 1. **Step 1: Load Tokenizer Encoding:**
    ```python
    import tiktoken
-   # cl100k_base is the standard modern tokenizer (used by GPT-4 and compatible models)
    encoding = tiktoken.get_encoding("cl100k_base")
    ```
 2. **Step 2: Tokenize and Map IDs:**
@@ -61,12 +74,11 @@ $$\text{Total Cost} = \left(\frac{\text{Prompt Tokens}}{10^6} \times \text{Price
    print("Token count:", len(token_ids))
    ```
 3. **Step 3: Decode Chunks to Visualize Boundaries:**
-   To see where each token starts and ends, decode each integer ID individually:
    ```python
    token_chunks = [encoding.decode([tid]) for tid in token_ids]
    ```
 4. **Step 4: Build a Multi-Model Pricing Matrix:**
-   Create a table of pricing rates per million tokens and compute projected costs for high-scale request volumes (e.g. 50,000 daily queries).
+   Create a table of pricing rates per million tokens and compute projected costs for high-scale request volumes.
 
 ---
 

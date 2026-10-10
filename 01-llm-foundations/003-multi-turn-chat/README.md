@@ -35,16 +35,44 @@ Turn 2 Request: [User: "I am Moazzem", Assistant: "Hi Moazzem", User: "What is m
 Turn 2 Response: [Assistant: "Your name is Moazzem"]
 ```
 
-### 3. The Quadratic Cost & Context Limit Problem
-Because the conversation history is resent on every turn:
-- **Token consumption grows quadratically**: In an $N$-turn dialogue, total prompt tokens scale as $O(N^2)$.
-- **Context limit overflow**: Once the accumulated token count exceeds the model's context limit (e.g. 8k, 32k, or 128k tokens), the API will reject your request with an `HTTP 400 ContextWindowExceeded` error.
+---
 
-### 4. Memory Strategies in Production AI
-To solve context explosion, AI engineers use three primary buffer strategies:
-1. **Sliding Window Buffer (This Project):** Retains only the last $K$ turns. The system prompt is pinned at index `0`, while turns older than $K$ are discarded.
-2. **Conversation Summary Memory:** When history exceeds a threshold, an LLM call summarizes older turns into a single paragraph.
-3. **Vector/Episodic Memory (Phase 2 & 5):** Turns are embedded into a vector database and retrieved semantically when relevant.
+## 🧩 Code Dissection: Why Did We Write It This Way?
+
+For beginners reading [`main.py`](file:///d:/AI%20ENGINEER%20ROADMAP/AI-ENGINEER-ROADMAP/01-llm-foundations/003-multi-turn-chat/main.py), here is why the architecture was designed with classes and buffer slicing:
+
+### 1. The `ChatSession` Class vs. Global Lists
+```python
+class ChatSession:
+    def __init__(self, system_prompt: str, max_turns: int = 5):
+        self.history: List[Dict[str, str]] = []
+```
+* **Why did we write this?** In real production systems (FastAPI, web backends, Discord/Slack bots), dozens of users chat at the same time.
+* **What could be written instead? (The Beginner Trap):**
+  Beginners often write a global list: `history = []` at the top of the file.
+* **Why the global list is fatal in production:** If User A and User B chat at the same time, User A's questions get appended into User B's context! User B suddenly sees User A's private personal data. Encapsulating history inside a `ChatSession` instance ensures strict multi-tenant session isolation.
+
+---
+
+### 2. Pinning the System Prompt at Index 0
+```python
+def _build_payload(self) -> List[Dict[str, str]]:
+    max_messages = self.max_turns * 2
+    trimmed_history = self.history[-max_messages:]
+    return [{"role": "system", "content": self.system_prompt}] + trimmed_history
+```
+* **Why did we write this?** The system prompt is prepended separately *after* trimming the history list.
+* **What happens if you don't do this?**
+  If you stored the system prompt inside `self.history[0]` and ran `self.history[-10:]`, as soon as the conversation exceeds 10 messages, **the system prompt is sliced off and lost!**
+  The model suddenly forgets its persona, its safety constraints, and its behavioral rules. Pinning the system message outside the sliding window ensures safety and identity are permanently preserved.
+
+---
+
+### 3. Slicing with `max_turns * 2`
+```python
+max_messages = self.max_turns * 2
+```
+* **Why multiply by 2?** Every full conversational turn consists of **2 messages**: one from the user and one from the assistant. If `max_turns = 5`, you must retain 10 message dictionaries.
 
 ---
 
@@ -149,7 +177,6 @@ Chat with the model in real time:
 ```powershell
 .\.venv\Scripts\python 01-llm-foundations/003-multi-turn-chat/main.py --interactive
 ```
-*(In interactive mode, type `/history` to inspect memory, `/clear` to reset, or `/exit` to quit).*
 
 ---
 

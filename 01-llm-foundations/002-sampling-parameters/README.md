@@ -34,10 +34,6 @@ Temperature is a scaling factor injected into the Softmax exponent:
 
 $$P(token_i) = \frac{e^{z_i / T}}{\sum_{j} e^{z_j / T}}$$
 
-```
-[Raw Logits: z] ──➔ [Divide by Temperature: z / T] ──➔ [Exponentiate & Normalize: Softmax] ──➔ [Next Token Probability]
-```
-
 - **When $T \to 0$ (Greedy / Argmax Decoding):**
   Dividing logits by a tiny fraction magnifies small differences. The highest-scoring token skyrockets towards $1.0$ probability, while all other tokens drop to $0.0$. The model **always picks the highest-ranking token**, making outputs 100% deterministic and reproducible across multiple runs.
   *Use Case:* SQL queries, JSON generation, math, and unit tests.
@@ -46,17 +42,58 @@ $$P(token_i) = \frac{e^{z_i / T}}{\sum_{j} e^{z_j / T}}$$
   Normal conversational range. High-probability tokens are favored, but minor variations are allowed, making dialogue sound natural and human.
 
 - **When $T > 1.2$ (High Entropy):**
-  Dividing logits by a large number flattens the curve. The difference between common tokens and rare tokens diminishes. Low-probability, unusual words have a much higher chance of being selected, boosting divergent creativity—or inducing hallucinations if pushed above $1.8$.
+  Dividing logits by a large number flattens the curve. Low-probability, unusual words have a much higher chance of being selected, boosting divergent creativity—or inducing hallucinations if pushed above $1.8$.
 
-### 3. Nucleus Sampling (`top_p`)
-Introduced by Holtzman et al. (2019), **Nucleus Sampling** solves the problem of "sampling from the long tail" of ridiculous tokens.
-Instead of setting a fixed cutoff (like Top-K which picks the top $K$ tokens), `top_p = 0.9` dynamically sorts tokens by probability and keeps only the smallest subset whose cumulative probability reaches 90%. If the top token already has 95% probability, only that token is considered!
+---
 
-### 4. Stopping Criteria (`stop` sequences)
-During autoregressive generation, the model terminates when:
-1. It predicts the internal `<|end_of_text|>` or `<|eot_id|>` token.
-2. It hits the client-specified `max_tokens` limit.
-3. It emits a user-defined string listed in `stop=["---", "\n\n"]`.
+## 🧩 Code Dissection: Why Did We Write It This Way?
+
+For beginners reading [`main.py`](file:///d:/AI%20ENGINEER%20ROADMAP/AI-ENGINEER-ROADMAP/01-llm-foundations/002-sampling-parameters/main.py), here is why specific parameters and functions were implemented:
+
+### 1. Explicit `temperature=0.0` vs. Omitting the Parameter
+```python
+response = client.chat.completions.create(..., temperature=0.0)
+```
+* **Why did we write this?** If you omit `temperature`, providers default to `1.0` or `0.7`. This introduces subtle randomness into every run.
+* **Why this matters:** In automated testing (CI/CD pipelines), regression tests will randomly fail if an LLM answers differently on every Git commit. Setting `0.0` enforces reproducible, deterministic outputs.
+
+---
+
+### 2. Validating Determinism with `len(set(runs)) == 1`
+```python
+runs = []
+for i in range(1, 4):
+    ...
+    runs.append(output)
+is_identical = len(set(runs)) == 1
+```
+* **Why did we write this?** In Python, a `set` automatically collapses identical duplicate strings.
+* **What could be written instead?** Writing `if runs[0] == runs[1] and runs[1] == runs[2]:`.
+* **Why the set approach wins:** `len(set(runs)) == 1` is cleaner and scales to any number of repeated verification runs ($N=10$, $N=100$).
+
+---
+
+### 3. Server-Side `stop=["---"]` vs. Client-Side Python String Splitting
+```python
+client.chat.completions.create(..., stop=["---"])
+```
+* **Why did we write this?** The `stop` sequence instructs the remote GPU inference cluster to halt token generation immediately when `"---"` is emitted.
+* **What could be written instead? (The Naive Client-Side Way):**
+  Many beginners let the model generate all 200 tokens, then cut the string in Python:
+  ```python
+  raw_text = response.choices[0].message.content
+  clean_text = raw_text.split("---")[0]  # Throws away remaining tokens
+  ```
+* **Why the server-side `stop` parameter wins:**
+  - **Financial Savings:** Cloud providers bill per generated output token. If the model generates 150 useless tokens before your Python code discards them, you pay for all 150 tokens!
+  - **Latency:** You wait 2 extra seconds for the model to generate text you don't need. Server-side stopping halts generation at the exact millisecond.
+
+---
+
+### 4. Nucleus Sampling (`top_p`) vs. Static `top_k`
+* **Why modern APIs favor `top_p`:**
+  - `top_k=50` forces the model to pick among 50 candidates, even when only 1 candidate makes sense (e.g. after the word `"San"`, the next word is almost certainly `"Francisco"`). This forces unnatural errors.
+  - `top_p=0.9` adapts dynamically: when the answer is obvious, the candidate pool shrinks to 1; when creative options exist, it expands.
 
 ---
 
