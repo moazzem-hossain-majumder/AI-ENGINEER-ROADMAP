@@ -18,17 +18,74 @@ By completing this project, you will:
 
 ---
 
+## 📚 Background Knowledge & Theory (Read Before Coding)
+
+To master LLM generation and build sampling experiments from scratch, you need to understand how the transformer's final layer produces text.
+
+### 1. From Raw Logits to Probabilities
+Inside the transformer, the final linear layer outputs a vector of raw, unnormalized scores called **Logits ($z$)**—one real number for each of the ~100,000 words in its vocabulary.
+
+To convert these raw scores into valid probabilities that sum to 1.0 (100%), the model applies the **Softmax function**:
+
+$$P(token_i) = \frac{e^{z_i}}{\sum_{j} e^{z_j}}$$
+
+### 2. The Mathematics of Temperature ($T$)
+Temperature is a scaling factor injected into the Softmax exponent:
+
+$$P(token_i) = \frac{e^{z_i / T}}{\sum_{j} e^{z_j / T}}$$
+
+```
+[Raw Logits: z] ──➔ [Divide by Temperature: z / T] ──➔ [Exponentiate & Normalize: Softmax] ──➔ [Next Token Probability]
+```
+
+- **When $T \to 0$ (Greedy / Argmax Decoding):**
+  Dividing logits by a tiny fraction magnifies small differences. The highest-scoring token skyrockets towards $1.0$ probability, while all other tokens drop to $0.0$. The model **always picks the highest-ranking token**, making outputs 100% deterministic and reproducible across multiple runs.
+  *Use Case:* SQL queries, JSON generation, math, and unit tests.
+
+- **When $T = 0.7$ (Balanced):**
+  Normal conversational range. High-probability tokens are favored, but minor variations are allowed, making dialogue sound natural and human.
+
+- **When $T > 1.2$ (High Entropy):**
+  Dividing logits by a large number flattens the curve. The difference between common tokens and rare tokens diminishes. Low-probability, unusual words have a much higher chance of being selected, boosting divergent creativity—or inducing hallucinations if pushed above $1.8$.
+
+### 3. Nucleus Sampling (`top_p`)
+Introduced by Holtzman et al. (2019), **Nucleus Sampling** solves the problem of "sampling from the long tail" of ridiculous tokens.
+Instead of setting a fixed cutoff (like Top-K which picks the top $K$ tokens), `top_p = 0.9` dynamically sorts tokens by probability and keeps only the smallest subset whose cumulative probability reaches 90%. If the top token already has 95% probability, only that token is considered!
+
+### 4. Stopping Criteria (`stop` sequences)
+During autoregressive generation, the model terminates when:
+1. It predicts the internal `<|end_of_text|>` or `<|eot_id|>` token.
+2. It hits the client-specified `max_tokens` limit.
+3. It emits a user-defined string listed in `stop=["---", "\n\n"]`.
+
+---
+
+## 🏗️ Step-by-Step Blueprint: How to Code This from Scratch
+
+1. **Step 1: Verify Determinism:**
+   - Loop 3 times over the exact same prompt with `temperature=0.0`.
+   - Store results in a list: `outputs.append(response.choices[0].message.content)`.
+   - Assert `len(set(outputs)) == 1` to verify every character is identical.
+2. **Step 2: Compare Creativity Spectrum:**
+   - Iterate over a list of temperatures `[0.0, 0.7, 1.4]`.
+   - Send the same creative prompt (e.g. startup naming).
+   - Render a comparison table showing how outputs vary from conservative to wild.
+3. **Step 3: Implement Stop Sequences:**
+   - Prompt the model to write a numbered list.
+   - Run once without `stop`, and once with `stop=["---"]`.
+   - Verify that generation halts early, saving tokens and cutting off unwanted content.
+
+---
+
 ## ⚙️ How It Works (Step-by-Step Execution Flow)
 
 ```
 Prompt ➔ Raw Model Logits ➔ Scale by Temperature (T) ➔ Softmax Probabilities ➔ Token Selection
 ```
 
-1. **Greedy Argmax (T = 0.0):** At each step, the model identifies the token with the absolute highest probability score and picks it every time. When you run 3 calls in a row with $T=0.0$, the result is 100% deterministic and identical.
-2. **Temperature Scaling (T > 0):** Dividing raw logits by $T$ flattens or sharpens the probability curve:
-   - Low $T$ ($0.2$): Sharpens peaks; common tokens dominate.
-   - High $T$ ($1.4$): Flattens differences; rare tokens are chosen more frequently, introducing novelty and surprise.
-3. **Early Halting with Stop Sequences:** The model inference engine checks each emitted token against a blacklist array (`stop=["---"]`). The moment the string matches, token production is terminated instantly, avoiding unwanted generation.
+1. **Greedy Argmax (T = 0.0):** Picks the highest probability token at every step.
+2. **Temperature Scaling (T > 0):** Dividing raw logits by $T$ flattens or sharpens the distribution.
+3. **Early Halting with Stop Sequences:** The inference engine checks each emitted token against a blacklist array (`stop=["---"]`) and halts production immediately.
 
 ---
 

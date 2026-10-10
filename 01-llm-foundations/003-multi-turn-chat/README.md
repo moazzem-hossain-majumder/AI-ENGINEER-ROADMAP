@@ -14,6 +14,61 @@ By completing this project, you will:
 
 ---
 
+## 📚 Background Knowledge & Theory (Read Before Coding)
+
+To build a conversational chatbot from scratch, you must understand state management in distributed AI systems.
+
+### 1. The Fundamental Statelessness of LLM APIs
+When you interact with an LLM via HTTP POST requests, the remote cluster operates like a pure mathematical function.
+- It **does not store** your user ID, your previous questions, or session cookies in model memory.
+- Every HTTP connection is completely independent.
+- If you ask *"What is my name?"* in Turn 2 without providing Turn 1, the model literally has zero access to past tokens.
+
+### 2. The Illusion of Memory: Client-Side Context Re-Injection
+To create a conversational experience, the **client application** must maintain an append-only memory buffer of all previous turns and resend the entire conversation on every single request:
+
+```text
+Turn 1 Request: [User: "I am Moazzem"]
+Turn 1 Response: [Assistant: "Hi Moazzem"]
+
+Turn 2 Request: [User: "I am Moazzem", Assistant: "Hi Moazzem", User: "What is my name?"]
+Turn 2 Response: [Assistant: "Your name is Moazzem"]
+```
+
+### 3. The Quadratic Cost & Context Limit Problem
+Because the conversation history is resent on every turn:
+- **Token consumption grows quadratically**: In an $N$-turn dialogue, total prompt tokens scale as $O(N^2)$.
+- **Context limit overflow**: Once the accumulated token count exceeds the model's context limit (e.g. 8k, 32k, or 128k tokens), the API will reject your request with an `HTTP 400 ContextWindowExceeded` error.
+
+### 4. Memory Strategies in Production AI
+To solve context explosion, AI engineers use three primary buffer strategies:
+1. **Sliding Window Buffer (This Project):** Retains only the last $K$ turns. The system prompt is pinned at index `0`, while turns older than $K$ are discarded.
+2. **Conversation Summary Memory:** When history exceeds a threshold, an LLM call summarizes older turns into a single paragraph.
+3. **Vector/Episodic Memory (Phase 2 & 5):** Turns are embedded into a vector database and retrieved semantically when relevant.
+
+---
+
+## 🏗️ Step-by-Step Blueprint: How to Code This from Scratch
+
+1. **Step 1: Design the `ChatSession` Class:**
+   - Store `self.history: List[Dict[str, str]] = []`.
+   - Store `self.system_prompt: str`.
+   - Store `self.max_turns: int = 5`.
+2. **Step 2: Implement Payload Construction (`_build_payload`):**
+   - Calculate maximum messages to keep: `max_messages = self.max_turns * 2`.
+   - Slice the tail: `trimmed = self.history[-max_messages:]`.
+   - Return `[{"role": "system", "content": self.system_prompt}] + trimmed`.
+3. **Step 3: Implement Message Transmission (`send_message`):**
+   - Append user query: `self.history.append({"role": "user", "content": text})`.
+   - Call API with `messages=self._build_payload()`.
+   - Extract reply and append: `self.history.append({"role": "assistant", "content": reply})`.
+4. **Step 4: Build the Interactive CLI Loop:**
+   - Run an infinite `while True` loop listening to `console.input()`.
+   - Handle custom commands: `/history`, `/clear`, `/exit`.
+   - Gracefully catch `KeyboardInterrupt` (Ctrl+C).
+
+---
+
 ## ⚙️ How It Works (Step-by-Step Execution Flow)
 
 ```
@@ -22,7 +77,7 @@ User Input ➔ Append to History ➔ Trim Old Messages (Sliding Window) ➔ Prep
 
 1. **Client-Side State Storage:** The `ChatSession` class maintains an internal Python list `self.history = []`.
 2. **Conversation Append:** When you ask a question, `{"role": "user", "content": "..."}` is added to the list.
-3. **Sliding Window Truncation:** To prevent token limit errors and skyrocketing API bills, the app limits the buffer to the last $N$ turns (e.g. `self.history[-10:]`).
+3. **Sliding Window Truncation:** To prevent token limit errors, the app limits the buffer to the last $N$ turns.
 4. **Context Injection:** The system prompt is always pinned at index `0`. The API receives the full list of preceding conversation turns.
 5. **Memory Recall:** Because earlier turns are included in the prompt, the model can synthesize information from past answers seamlessly.
 

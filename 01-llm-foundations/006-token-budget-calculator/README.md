@@ -15,17 +15,71 @@ By completing this project, you will:
 
 ---
 
+## 📚 Background Knowledge & Theory (Read Before Coding)
+
+To manage LLM performance and cloud costs effectively, you must understand tokenization algorithms and cost economics.
+
+### 1. Why Don't LLMs Process Characters or Words?
+In natural language processing, there are three theoretical ways to represent text:
+- **Character-level:** Sequences are too long. A 1,000-word essay would be ~6,000 individual characters, blowing through the transformer's attention window ($O(N^2)$ complexity).
+- **Word-level:** The vocabulary is virtually infinite. New slang, typos, technical terms (e.g., `LangChain`, `PyTorch`), and non-English words would trigger missing word errors (`<UNK>`).
+- **Sub-word Level (Byte Pair Encoding - BPE):** The sweet spot. Common words become single tokens (e.g., `"the"`, `"cat"`), while rare or composite words are broken down into sub-word pieces (e.g., `"tokenization"` $\to$ `["token", "ization"]`).
+
+### 2. How Byte Pair Encoding (BPE) Works
+Originally a data compression algorithm (Gage, 1994), BPE is the standard tokenization method for modern LLMs (GPT-4, Llama 3, Qwen):
+1. The vocabulary starts with individual base bytes (UTF-8).
+2. The training corpus is scanned for the most frequent adjacent character pairs (e.g., `'t'` and `'h'`).
+3. These pairs are merged into a new single token (`'th'`).
+4. This merge process repeats iteratively hundreds of thousands of times until the target vocabulary size (~100,000 to 200,000 tokens) is reached.
+5. Leading spaces and punctuation are often fused into the beginning of words (e.g., `"·artificial"`).
+
+### 3. The Token-to-Word Ratio & Language Disparity
+- **English Prose:** On average, 1,000 English words correspond to **~1,333 tokens** (~0.75 words per token).
+- **Source Code:** High punctuation and indentation create more tokens: 1,000 lines of code can consume **2,500+ tokens**.
+- **Non-Latin Scripts (Bengali, Hindi, Arabic, Japanese):** Because these scripts require 3 or 4 UTF-8 bytes per character, a single non-Latin word may split into 3 to 6 sub-word tokens, making non-English processing more expensive and slower unless using a multilingual vocabulary like Qwen or Llama 3.
+
+### 4. Financial Economics of LLM APIs
+Production APIs bill separately for inputs and outputs:
+- **Prompt (Input) Tokens:** Cheaper because processing prompt tokens can be parallelized across GPU matrix cores simultaneously during pre-fill.
+- **Completion (Output) Tokens:** 2x to 5x more expensive because each token must be generated sequentially (one step at a time), bottlenecking GPU memory bandwidth.
+
+$$\text{Total Cost} = \left(\frac{\text{Prompt Tokens}}{10^6} \times \text{Price}_{\text{in}}\right) + \left(\frac{\text{Completion Tokens}}{10^6} \times \text{Price}_{\text{out}}\right)$$
+
+---
+
+## 🏗️ Step-by-Step Blueprint: How to Code This from Scratch
+
+1. **Step 1: Load Tokenizer Encoding:**
+   ```python
+   import tiktoken
+   # cl100k_base is the standard modern tokenizer (used by GPT-4 and compatible models)
+   encoding = tiktoken.get_encoding("cl100k_base")
+   ```
+2. **Step 2: Tokenize and Map IDs:**
+   ```python
+   token_ids = encoding.encode(text)
+   print("Token count:", len(token_ids))
+   ```
+3. **Step 3: Decode Chunks to Visualize Boundaries:**
+   To see where each token starts and ends, decode each integer ID individually:
+   ```python
+   token_chunks = [encoding.decode([tid]) for tid in token_ids]
+   ```
+4. **Step 4: Build a Multi-Model Pricing Matrix:**
+   Create a table of pricing rates per million tokens and compute projected costs for high-scale request volumes (e.g. 50,000 daily queries).
+
+---
+
 ## ⚙️ How It Works (Step-by-Step Execution Flow)
 
 ```
 [Raw Input String] ➔ [BPE Tokenizer (tiktoken)] ➔ [Integer Token IDs] ➔ [Decoded Sub-word Chunks] ➔ [Multi-Model Cost Model]
 ```
 
-1. **Tokenization (BPE):** Words are split into frequent sub-word statistical units (e.g., `tokenization` becomes `["token", "ization"]`). Punctuation and spaces are often bundled into neighboring tokens.
-2. **Token ID Mapping:** Each token maps to a unique integer in the model's vocabulary (~100,000 to 200,000 IDs).
-3. **Pre-flight Budgeting:** An AI engineer counts tokens locally *before* making network requests. If prompt tokens exceed the model's maximum allowed limit (e.g. 8k, 32k, 128k), the system truncates or compresses the text locally rather than paying for a failed API call.
-4. **Financial Cost Modeling:** Inference providers charge per million tokens:
-   $$\text{Total Cost} = \left(\frac{\text{Prompt Tokens}}{1,000,000} \times \text{Price}_{\text{in}}\right) + \left(\frac{\text{Completion Tokens}}{1,000,000} \times \text{Price}_{\text{out}}\right)$$
+1. **Tokenization (BPE):** Words are split into frequent sub-word statistical units.
+2. **Token ID Mapping:** Each token maps to a unique integer in the model's vocabulary.
+3. **Pre-flight Budgeting:** An AI engineer counts tokens locally *before* making network requests.
+4. **Financial Cost Modeling:** Calculates projected dollar cost per million tokens across models.
 
 ---
 
@@ -38,32 +92,36 @@ When you execute `main.py`, you will see visual token boundaries and a multi-mod
   AI ENGINEER ROADMAP - PROJECT 006: TOKEN BUDGET & COST   
 ===========================================================
 
-📝 Input Text:
-'Artificial intelligence engineering requires mastering RAG, agent workflows, and cost management!'
-
-🔍 Sub-word Token Breakdown:
-[Art][ificial] [intelligence] [engineering] [requires] [mastering] [R]
-[AG][,] [agent] [workflows][,] [and] [cost] [management][!]
-
-📊 Tokenization Metrics:
-┌────────────────────────────┬────────────────────┐
-│ Metric                     │ Measurement        │
-├────────────────────────────┼────────────────────┤
-│ Total Characters           │ 98                 │
-│ Total Words                │ 11                 │
-│ Total Tokens               │ 16                 │
-│ Characters Per Token       │ 6.1                │
-└────────────────────────────┴────────────────────┘
-
-💰 Cost Projection for 100,000 Requests (Assuming 16 prompt tokens + 250 completion tokens):
-┌───────────────────────────┬──────────────┬──────────────┬───────────────┐
-│ Model Provider            │ Prompt Cost  │ Output Cost  │ Total Cost    │
-├───────────────────────────┼──────────────┼──────────────┼───────────────┤
-│ Groq (Open Source / Qwen) │ $0.09        │ $1.98        │ $2.07         │
-│ Google Gemini 1.5 Flash   │ $0.12        │ $7.50        │ $7.62         │
-│ OpenAI GPT-4o-mini        │ $0.24        │ $15.00       │ $15.24        │
-│ OpenAI GPT-4o             │ $4.00        │ $250.00      │ $254.00       │
-└───────────────────────────┴──────────────┴──────────────┴───────────────┘
+┌─────────────────────────────── 📝 Input Text ───────────────────────────────┐
+│ Artificial intelligence engineering requires mastering RAG architectures,   │
+│ autonomous agent loops, and rigorous token budget management.               │
+└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────── 🔍 Sub-word Token Chunks (Colored Boundaries) ───────────────┐
+│ [Art][ificial][·intelligence][·engineering][·requires][·mastering][·R][AG][ │
+│ ·architectures][,][·autonomous][·agent][·loops][,][·and][·rigorous][·token] │
+│ [·budget][·management][.]                                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+         📊 Tokenization Metrics          
+┌──────────────────────────┬─────────────┐
+│ Metric                   │ Value       │
+├──────────────────────────┼─────────────┤
+│ Total Characters         │ 135         │
+│ Total Words              │ 15          │
+│ Total Tokens             │ 20          │
+│ Avg Characters per Token │ 6.75        │
+│ Encoding Standard        │ cl100k_base │
+└──────────────────────────┴─────────────┘
+                 💰 Cost Projection for 50,000 API Requests                  
+         (Assuming 20 prompt tokens + 250 output tokens per request)         
+┌──────────────────────────────────┬─────────────┬─────────────┬────────────┐
+│ Model Provider                   │ Prompt Cost │ Output Cost │ Total Cost │
+├──────────────────────────────────┼─────────────┼─────────────┼────────────┤
+│ Groq Cloud (qwen/qwen3.8-27b)    │ $0.09       │ $2.00       │ $2.09      │
+│ Google Gemini 1.5 Flash          │ $0.07       │ $3.75       │ $3.83      │
+│ OpenAI GPT-4o-mini               │ $0.15       │ $7.50       │ $7.65      │
+│ OpenAI GPT-4o                    │ $2.50       │ $125.00     │ $127.50    │
+│ Anthropic Claude 3.5 Sonnet      │ $3.00       │ $187.50     │ $190.50    │
+└──────────────────────────────────┴─────────────┴─────────────┴────────────┘
 ```
 
 ---
@@ -71,17 +129,6 @@ When you execute `main.py`, you will see visual token boundaries and a multi-mod
 ## 💻 Code Reference
 
 The complete runnable code is located in [`main.py`](file:///d:/AI%20ENGINEER%20ROADMAP/AI-ENGINEER-ROADMAP/01-llm-foundations/006-token-budget-calculator/main.py).
-
-Key snippet:
-```python
-import tiktoken
-
-# Use standard modern OpenAI/Open-Source tokenizer encoding
-encoding = tiktoken.get_encoding("cl100k_base")
-tokens = encoding.encode("Artificial intelligence engineering")
-print("Token Count:", len(tokens))
-print("Token IDs:", tokens)
-```
 
 ---
 
