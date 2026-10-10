@@ -12,6 +12,8 @@ Most AI roadmaps are passive lists of videos and articles. **This roadmap is dif
 2. **Concept ➔ Project Pairing:** You never read about a concept without building a working project that demonstrates it.
 3. **Progressive Capstones:** After mastering a group of atomic concepts, you synthesize them into a real-world, production-ready capstone project.
 4. **Multi-Model & Provider Agnostic:** Leverage **Groq**, **Google Gemini**, **Hugging Face**, and **OpenAI** without vendor lock-in.
+5. **Code Rationale & Alternatives First:** Every single project contains a dedicated *Code Dissection* explaining why the code was written this way, what a naive beginner might write instead, and what production alternatives exist in the ecosystem.
+   👉 **Read the Master Guide:** [**Beginner's Code Dissection & Architectural Alternatives Guide**](docs/BEGINNER_CODE_DISSECTION_GUIDE.md)
 
 ---
 
